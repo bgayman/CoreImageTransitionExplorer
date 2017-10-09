@@ -20,13 +20,13 @@ class CompositeOverBlackFilter: CIFilter
     override init()
     {
         black = CIFilter(name: "CIConstantColorGenerator",
-            withInputParameters: [kCIInputColorKey: CIColor(color: UIColor.blackColor())])!
+            withInputParameters: [kCIInputColorKey: CIColor(color: UIColor.black)])!
         
         composite = CIFilter(name: "CISourceAtopCompositing",
             withInputParameters: [kCIInputBackgroundImageKey: black.outputImage!])!
         
         crop = CIFilter(name: "CICrop",
-            withInputParameters: ["inputRectangle" : CIVector(CGRect: ViewController.rect1024x1024)])!
+            withInputParameters: ["inputRectangle" : CIVector(cgRect: ViewController.rect1024x1024)])!
         
         super.init()
     }

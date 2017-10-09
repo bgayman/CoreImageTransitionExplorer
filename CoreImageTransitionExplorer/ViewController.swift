@@ -11,36 +11,36 @@ import Photos
 
 class ViewController: UIViewController
 {
-    let manager = PHImageManager.defaultManager()
+    let manager = PHImageManager.default()
     lazy var requestOptions: PHImageRequestOptions =
     {
         [unowned self] in
         
         let requestOptions = PHImageRequestOptions()
         
-        requestOptions.deliveryMode = PHImageRequestOptionsDeliveryMode.HighQualityFormat
-        requestOptions.resizeMode = PHImageRequestOptionsResizeMode.Exact
-        requestOptions.networkAccessAllowed = true
+        requestOptions.deliveryMode = PHImageRequestOptionsDeliveryMode.opportunistic
+        requestOptions.resizeMode = PHImageRequestOptionsResizeMode.exact
+        requestOptions.isNetworkAccessAllowed = true
         
         requestOptions.progressHandler = {
-            (value: Double, _: NSError?, _ : UnsafeMutablePointer<ObjCBool>, _ : [NSObject : AnyObject]?) in
-            dispatch_async(dispatch_get_main_queue())
+            (value: Double, _: NSError?, _ : UnsafeMutablePointer<ObjCBool>, _ : [AnyHashable: Any]?) in
+            DispatchQueue.main.async
             {
                 self.progressBar.setProgress(Float(value), animated: true)
             }
-        }
+        } as? PHAssetImageProgressHandler
 
         return requestOptions
     }()
   
     let imageView = ImageView()
     
-    let progressBar = UIProgressView(progressViewStyle: .Bar)
+    let progressBar = UIProgressView(progressViewStyle: .bar)
     
     let transitionSegmentedControl = UISegmentedControl(items: ["CIDissolveTransition", "CIBarsSwipeTransition",
         "CIModTransition", "CISwipeTransition",
         "CICopyMachineTransition", "CIFlashTransition", "CIRippleTransition",
-        "BlurTransition", "CircleTransition", "StarTransition"].sort())
+        "BlurTransition", "CircleTransition", "StarTransition"].sorted())
     
     var transitionTime = 0.0
     let transitionStep = 0.005
@@ -67,8 +67,8 @@ class ViewController: UIViewController
         CircleTransition.register()
         StarTransition.register()
         
-        view.backgroundColor = UIColor.blackColor()
-        imageView.backgroundColor = UIColor.blackColor()
+        view.backgroundColor = UIColor.black
+        imageView.backgroundColor = UIColor.black
         
         view.addSubview(imageView)
         
@@ -84,7 +84,7 @@ class ViewController: UIViewController
         // ---
 
         PHPhotoLibrary.requestAuthorization { (status) -> Void in
-            if status == .Authorized {
+            if status == .authorized {
                 self.requestAssets()
             }
         }
@@ -92,25 +92,25 @@ class ViewController: UIViewController
 
     func requestAssets()
     {
-        manager.requestImageForAsset(assets[randomAssetIndex],
+        manager.requestImage(for: assets[randomAssetIndex],
             targetSize: returnImageSize,
-            contentMode: PHImageContentMode.AspectFit,
+            contentMode: PHImageContentMode.aspectFit,
             options: requestOptions,
             resultHandler: imageRequestResultHandler)
 
-        manager.requestImageForAsset(assets[randomAssetIndex],
+        manager.requestImage(for: assets[randomAssetIndex],
             targetSize: returnImageSize,
-            contentMode: PHImageContentMode.AspectFit,
+            contentMode: PHImageContentMode.aspectFit,
             options: requestOptions,
             resultHandler: imageRequestResultHandler)
 
-        let displayLink = CADisplayLink(target: self, selector: Selector("step"))
-        displayLink.addToRunLoop(NSRunLoop.mainRunLoop(), forMode: NSDefaultRunLoopMode)
+        let displayLink = CADisplayLink(target: self, selector: #selector(ViewController.step))
+        displayLink.add(to: RunLoop.main, forMode: RunLoopMode.defaultRunLoopMode)
     }
 
-    func step()
+    @objc func step()
     {
-        guard let imageOne = imageOne, imageTwo = imageTwo else
+        guard let imageOne = imageOne, let imageTwo = imageTwo else
         {
             return
         }
@@ -132,7 +132,7 @@ class ViewController: UIViewController
         let target = CompositeOverBlackFilter()
         target.inputImage = imageOneIsTransitionTarget ? transformFilterTwo.outputImage! : transformFilterOne.outputImage!
    
-        let transitionName = transitionSegmentedControl.titleForSegmentAtIndex(transitionSegmentedControl.selectedSegmentIndex)!
+        let transitionName = transitionSegmentedControl.titleForSegment(at: transitionSegmentedControl.selectedSegmentIndex)!
         
         let transition = CIFilter(name: transitionName,
             withInputParameters: [kCIInputImageKey: source.outputImage,
@@ -141,7 +141,7 @@ class ViewController: UIViewController
 
         if transition.inputKeys.contains(kCIInputExtentKey)
         {
-            transition.setValue(CIVector(CGRect: ViewController.rect1024x1024),
+            transition.setValue(CIVector(cgRect: ViewController.rect1024x1024),
                 forKey: kCIInputExtentKey)
         }
         
@@ -174,9 +174,9 @@ class ViewController: UIViewController
                 self.imageTwo = nil
             }
             
-            manager.requestImageForAsset(assets[randomAssetIndex],
+            manager.requestImage(for: assets[randomAssetIndex],
                 targetSize: returnImageSize,
-                contentMode: PHImageContentMode.AspectFit,
+                contentMode: PHImageContentMode.aspectFit,
                 options: requestOptions,
                 resultHandler: imageRequestResultHandler)
                     
@@ -185,19 +185,19 @@ class ViewController: UIViewController
     
     /// Returns an NSValue containing an affine transform to center an CIImage within
     /// a square bounding box
-    static func centerImageTransform(image: CIImage) -> NSValue
+    static func centerImageTransform(_ image: CIImage) -> NSValue
     {
         let transform: NSValue
             
         if image.extent.width > image.extent.height
         {
             let dy = image.extent.width / 2 - image.extent.height / 2
-            transform = NSValue(CGAffineTransform: CGAffineTransformMakeTranslation(0, dy))
+            transform = NSValue(cgAffineTransform: CGAffineTransform(translationX: 0, y: dy))
         }
             else
         {
             let dx = image.extent.height / 2 - image.extent.width / 2
-            transform = NSValue(CGAffineTransform: CGAffineTransformMakeTranslation(dx, 0))
+            transform = NSValue(cgAffineTransform: CGAffineTransform(translationX: dx, y: 0))
         }
 
         return transform
@@ -209,38 +209,36 @@ class ViewController: UIViewController
         var assets = [PHAsset]()
         
         let fetchOptions = PHFetchOptions()
-        fetchOptions.predicate = NSPredicate(format: "mediaType = %i", PHAssetMediaType.Image.rawValue)
+        fetchOptions.predicate = NSPredicate(format: "mediaType = %i", PHAssetMediaType.image.rawValue)
         
         
-        let assetCollections = PHAssetCollection.fetchAssetCollectionsWithType(PHAssetCollectionType.Moment,
-            subtype: PHAssetCollectionSubtype.AlbumRegular,
+        let assetCollections = PHAssetCollection.fetchAssetCollections(with: PHAssetCollectionType.moment,
+            subtype: PHAssetCollectionSubtype.albumRegular,
             options: nil)
         
         for index in 0 ..< assetCollections.count
         {
-            let assetCollection = assetCollections[index] as? PHAssetCollection
+            let assetCollection = assetCollections[index] as PHAssetCollection
             
-            let assetsInCollection = PHAsset.fetchAssetsInAssetCollection(assetCollection!, options: fetchOptions)
+            let assetsInCollection = PHAsset.fetchAssets(in: assetCollection, options: fetchOptions)
             
-            let range = NSIndexSet(indexesInRange: NSRange(0 ..< assetsInCollection.count))
+            let range = IndexSet(integersIn: 0 ..< assetsInCollection.count)
             
-            if let assetsArray = assetsInCollection.objectsAtIndexes(range) as? [PHAsset]
-            {
-                assets.appendContentsOf(assetsArray)
-            }
+            let assetsArray = assetsInCollection.objects(at: range) as [PHAsset]
+            assets.append(contentsOf: assetsArray)
         }
         
         return assets
     }
     
-    func imageRequestResultHandler(image: UIImage?, properties: [NSObject: AnyObject]?)
+    func imageRequestResultHandler(_ image: UIImage?, properties: [AnyHashable: Any]?)
     {
         guard let image = image else
         {
             return;
         }
      
-        let imageResult = CIImage(image: image)?.imageByApplyingOrientation(imageOrientationToTiffOrientation(image.imageOrientation))
+        let imageResult = CIImage(image: image)?.oriented(forExifOrientation: imageOrientationToTiffOrientation(image.imageOrientation))
         
         if imageOneIsTransitionTarget
         {
@@ -250,8 +248,11 @@ class ViewController: UIViewController
         {
             imageTwo = imageResult
         }
+        DispatchQueue.main.async
+        {
+            self.progressBar.progress = 0
+        }
         
-        progressBar.progress = 0
         
         imageOneIsTransitionTarget = !imageOneIsTransitionTarget
     }
@@ -262,43 +263,43 @@ class ViewController: UIViewController
         imageView.frame = view.bounds.insetBy(dx: 50, dy: 50)
         
         transitionSegmentedControl.frame = CGRect(x: 0,
-            y: view.frame.height - transitionSegmentedControl.intrinsicContentSize().height,
+            y: view.frame.height - transitionSegmentedControl.intrinsicContentSize.height,
             width: view.frame.width,
-            height: transitionSegmentedControl.intrinsicContentSize().height)
+            height: transitionSegmentedControl.intrinsicContentSize.height)
         
         progressBar.frame = CGRect(x: 0,
             y: topLayoutGuide.length,
             width: view.frame.width,
-            height: progressBar.intrinsicContentSize().height).insetBy(dx: 10, dy: 0)
+            height: progressBar.intrinsicContentSize.height).insetBy(dx: 10, dy: 0)
     }
 
-    override func preferredStatusBarStyle() -> UIStatusBarStyle
+    override var preferredStatusBarStyle : UIStatusBarStyle
     {
-        return UIStatusBarStyle.LightContent
+        return UIStatusBarStyle.lightContent
     }
 
 }
 
 
-func imageOrientationToTiffOrientation(value: UIImageOrientation) -> Int32
+func imageOrientationToTiffOrientation(_ value: UIImageOrientation) -> Int32
 {
     switch (value)
     {
-    case UIImageOrientation.Up:
+    case UIImageOrientation.up:
         return 1
-    case UIImageOrientation.Down:
+    case UIImageOrientation.down:
         return 3
-    case UIImageOrientation.Left:
+    case UIImageOrientation.left:
         return 8
-    case UIImageOrientation.Right:
+    case UIImageOrientation.right:
         return 6
-    case UIImageOrientation.UpMirrored:
+    case UIImageOrientation.upMirrored:
         return 2
-    case UIImageOrientation.DownMirrored:
+    case UIImageOrientation.downMirrored:
         return 4
-    case UIImageOrientation.LeftMirrored:
+    case UIImageOrientation.leftMirrored:
         return 5
-    case UIImageOrientation.RightMirrored:
+    case UIImageOrientation.rightMirrored:
         return 7
     }
 }

@@ -22,7 +22,7 @@ class CustomTransitionFilter: CIFilter
         return inputTime.smootherStep()
     }
     
-    override var attributes: [String : AnyObject]
+    override var attributes: [String : Any]
     {
         return [
             "inputImage": [kCIAttributeIdentity: 0,
@@ -53,7 +53,7 @@ class StarTransition: CustomTransitionFilter
 {
     static func register()
     {
-        CIFilter.registerFilterName("StarTransition",
+        CIFilter.registerName("StarTransition",
             constructor: CustomFiltersVendor(),
             classAttributes: [
                 kCIAttributeFilterCategories: ["CICategoryTransition"]
@@ -66,7 +66,7 @@ class StarTransition: CustomTransitionFilter
     override var outputImage: CIImage?
     {
         guard let inputImage = inputImage,
-            inputTargetImage = inputTargetImage else
+            let inputTargetImage = inputTargetImage else
         {
             return nil
         }
@@ -79,14 +79,14 @@ class StarTransition: CustomTransitionFilter
         
         let rotationSpeedMultiplier = CGFloat(5)
         
-        starGenerator.setValue(CIVector(CGPoint: centre), forKey: kCIInputCenterKey)
+        starGenerator.setValue(CIVector(cgPoint: centre), forKey: kCIInputCenterKey)
         starGenerator.setValue(maxRadius * smoothedTime, forKey: kCIInputRadiusKey)
         starGenerator.setValue(rotationSpeedMultiplier * inputTime, forKey: "inputCrossAngle")
         
-        let mask = starGenerator.outputImage!.imageByCroppingToRect(inputImage.extent)
+        let mask = starGenerator.outputImage!.cropped(to: inputImage.extent)
         
-        return inputTargetImage.imageByApplyingFilter("CIBlendWithMask",
-            withInputParameters: [kCIInputBackgroundImageKey: inputImage, kCIInputMaskImageKey: mask])
+        return inputTargetImage.applyingFilter("CIBlendWithMask",
+            parameters: [kCIInputBackgroundImageKey: inputImage, kCIInputMaskImageKey: mask])
     }
 }
 
@@ -96,7 +96,7 @@ class CircleTransition: CustomTransitionFilter
 {
     static func register()
     {
-        CIFilter.registerFilterName("CircleTransition",
+        CIFilter.registerName("CircleTransition",
             constructor: CustomFiltersVendor(),
             classAttributes: [
                 kCIAttributeFilterCategories: ["CICategoryTransition"]
@@ -106,7 +106,7 @@ class CircleTransition: CustomTransitionFilter
     override var outputImage: CIImage?
     {
         guard let inputImage = inputImage,
-            inputTargetImage = inputTargetImage else
+            let inputTargetImage = inputTargetImage else
         {
             return nil
         }
@@ -118,11 +118,11 @@ class CircleTransition: CustomTransitionFilter
         let maxRadius = centre.distanceTo(extent.origin)
 
         let sourceImage = inputImage
-            .imageByApplyingFilter("CIHoleDistortion", withInputParameters: [
-                kCIInputCenterKey: CIVector(CGPoint: centre),
-                kCIInputRadiusKey: maxRadius * smoothedTime]).imageByCroppingToRect(inputImage.extent)
+            .applyingFilter("CIHoleDistortion", parameters: [
+                kCIInputCenterKey: CIVector(cgPoint: centre),
+                kCIInputRadiusKey: maxRadius * smoothedTime]).cropped(to: inputImage.extent)
 
-        return sourceImage.imageByCompositingOverImage(inputTargetImage)
+        return sourceImage.composited(over: inputTargetImage)
     }
     
 }
@@ -133,7 +133,7 @@ class BlurTransition: CustomTransitionFilter
 {
     static func register()
     {
-        CIFilter.registerFilterName("BlurTransition",
+        CIFilter.registerName("BlurTransition",
             constructor: CustomFiltersVendor(),
             classAttributes: [
                 kCIAttributeFilterCategories: ["CICategoryTransition"]
@@ -145,21 +145,21 @@ class BlurTransition: CustomTransitionFilter
     override var outputImage: CIImage?
     {
         guard let inputImage = inputImage,
-            inputTargetImage = inputTargetImage else
+            let inputTargetImage = inputTargetImage else
         {
             return nil
         }
 
         let blurredSource = inputImage
-            .imageByApplyingFilter("CIGaussianBlur", withInputParameters: [kCIInputRadiusKey: smoothedTime * maxBlur])
-            .imageByCroppingToRect(inputImage.extent)
+            .applyingFilter("CIGaussianBlur", parameters: [kCIInputRadiusKey: smoothedTime * maxBlur])
+            .cropped(to: inputImage.extent)
         
         let blurredTarget = inputTargetImage
-            .imageByApplyingFilter("CIGaussianBlur", withInputParameters: [kCIInputRadiusKey: (1 - smoothedTime) * maxBlur])
-            .imageByCroppingToRect(inputTargetImage.extent)
+            .applyingFilter("CIGaussianBlur", parameters: [kCIInputRadiusKey: (1 - smoothedTime) * maxBlur])
+            .cropped(to: inputTargetImage.extent)
         
         let finalImage = blurredSource
-            .imageByApplyingFilter("CIDissolveTransition", withInputParameters: [
+            .applyingFilter("CIDissolveTransition", parameters: [
                 kCIInputTargetImageKey: blurredTarget,
                 kCIInputTimeKey: inputTime])
         
@@ -169,7 +169,7 @@ class BlurTransition: CustomTransitionFilter
 
 class CustomFiltersVendor: NSObject, CIFilterConstructor
 {
-    func filterWithName(name: String) -> CIFilter?
+    func filter(withName name: String) -> CIFilter?
     {
         switch name
         {
@@ -190,7 +190,7 @@ class CustomFiltersVendor: NSObject, CIFilterConstructor
 
 extension CGPoint
 {
-    func distanceTo(point: CGPoint) -> CGFloat
+    func distanceTo(_ point: CGPoint) -> CGFloat
     {
         return hypot(self.x - point.x, self.y - point.y)
     }
